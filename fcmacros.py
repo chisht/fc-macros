@@ -22,6 +22,7 @@ import logging.handlers
 import sys
 import win32gui
 import zipfile
+import random
 
 VERSION = "0.2.3"
 BUNDLED = False
@@ -125,12 +126,26 @@ def get_latest_log_file():
 def get_current_focus():
     global screen_shape, fullscreen
     logging.debug("Checking window focus before running macro")
-    win = win32gui.GetForegroundWindow()
-    title = win32gui.GetWindowText(win)
-    if title != "Elite - Dangerous (CLIENT)":
-        logging.warning(f"Current window is '{title}' and not 'Elite - Dangerous' abort macro")
-        set_status("Elite - Dangerous does not have the focus, aborting")
-        return False
+    firstcolor = True
+    while True:
+        win = win32gui.GetForegroundWindow()
+        title = win32gui.GetWindowText(win)
+        if title != "Elite - Dangerous (CLIENT)":
+            logging.warning(f"Current window is '{title}' and not 'Elite - Dangerous' abort macro")
+            set_status("Elite - Dangerous does not have the focus, aborting")
+            #current_color = status.cget("background")
+            if firstcolor:
+                next_color = "green"
+            else:
+                next_color = "red"
+            firstcolor = not firstcolor
+            logging.warning(f"Colors: {firstcolor} {next_color}")
+            status.config(background=next_color)
+            sleep(1)
+        else:
+            set_status("                                                        ")
+            break
+    status.config(background="black")
     logging.debug("Elite - Dangerous has the focus, macro proceeding")
     screen_shape = ocr.get_screen_width()
     fullscreen = ocr.is_fullscreen()
@@ -186,9 +201,10 @@ def press(key, delay=0.5, down_time=0.2):
         out = "Press: " + key
     logging.debug(out)
     kb.press(key)
+    #sleep(down_time + random.uniform(0, 0.1))
     sleep(down_time)
     kb.release(key)
-    sleep(delay)
+    sleep(delay + random.uniform(0, 3))
 
 
 # Hold image list
@@ -268,16 +284,29 @@ def press_until_text_found(key, word_list, max_count=10, pause=0.5):
 
 # Return to the center HUD
 def return_hud_to_start():
-    if not press_until_text_found(ED_BACK, [["LAUNCH"], ["AUTO"], ["DISEMBARK"], ["CARRIER", "SERVICES"]], max_count=10):
-        set_status("Unable to find main HUD")
-        return False
-    if ocr.get_average_color_bw(get_carrier_services_location(), debug_text="CARRIER SERVICES") > ENABLED_THRESHOLD:
-        return True
-    press(ED_UI_UP)
-    press(ED_UI_UP)
-    press(ED_UI_UP)
-    return press_until_selected_region(ED_UI_DOWN, get_carrier_services_location(), debug_text="CARRIER SERVICES", max_count=5)
+    press(ED_BACK)
+    press(ED_BACK)
+    press(ED_BACK)
 
+    press(ED_UI_UP)
+    press(ED_UI_UP)
+    press(ED_UI_UP)
+    press(ED_UI_UP)
+    press(ED_UI_DOWN)
+    return True
+
+    """ 
+        if not press_until_text_found(ED_BACK, [["LAUNCH"], ["AUTO"], ["DISEMBARK"], ["CARRIER", "SERVICES"]], max_count=10):
+            set_status("Unable to find main HUD")
+            return False
+        if ocr.get_average_color_bw(get_carrier_services_location(), debug_text="CARRIER SERVICES") > ENABLED_THRESHOLD:
+            return True
+        press(ED_UI_UP)
+        press(ED_UI_UP)
+        press(ED_UI_UP)
+        return press_until_selected_region(ED_UI_DOWN, get_carrier_services_location(), debug_text="CARRIER SERVICES", max_count=5)
+
+    """
 
 # Locate an image(set) on the screen, return its found position
 def deprecated_locate_on_screen(image, do_log=True):
@@ -365,17 +394,25 @@ def get_carrier_services_location():
 # Move back to the carrier main screen after a jump
 def reset_to_main_hud_after_jump():
     sleep(5)
-    logging.debug("Select right HUD (workaround)")
-    if not press_and_find_text_list(ED_RIGHT_WINDOW, [["MODULES"], ["STATUS"], ["FIRE", "GROUPS"]]):
-        set_status("Unable to verify right HUD - cant find MODULES, STATUS or FIRE GROUPS")
-        return False
-    sleep(1)
-    logging.debug("Back to center HUD")
-    if not return_hud_to_start(): return False
-    if ocr.get_average_color_bw(get_carrier_services_location(), debug_text="CARRIER SERVICES") <= ENABLED_THRESHOLD:
-        set_status("Unable to find selected CARRIER SERVICES")
-        return False
 
+    press(ED_BACK)
+    press(ED_BACK)
+    press(ED_BACK)
+    press(ED_BACK)
+    press(ED_BACK)
+    return True
+
+    """     logging.debug("Select right HUD (workaround)")
+        if not press_and_find_text_list(ED_RIGHT_WINDOW, [["MODULES"], ["STATUS"], ["FIRE", "GROUPS"]]):
+            set_status("Unable to verify right HUD - cant find MODULES, STATUS or FIRE GROUPS")
+            return False
+        sleep(1)
+        logging.debug("Back to center HUD")
+        if not return_hud_to_start(): return False
+        if ocr.get_average_color_bw(get_carrier_services_location(), debug_text="CARRIER SERVICES") <= ENABLED_THRESHOLD:
+            set_status("Unable to find selected CARRIER SERVICES")
+            return False
+    """
 
 # Callback to schedule a jump
 def schedule_jump():
@@ -415,37 +452,69 @@ def find_system_and_jump_1(*args):
     # Back to main menu
     if not return_hud_to_start(): return False
     press(ED_UI_SELECT)
-
-    if not press_until_selected_region(ED_UI_DOWN, TRITIUM_DEPOT_POS, ED_UI_UP): return False
-    if not press_until_selected_region(ED_UI_RIGHT, CARRIER_MANAGEMENT_POS, ED_UI_DOWN): return False
+    sleep(5)
+    press(ED_UI_DOWN)
+    press(ED_UI_DOWN)
+    press(ED_UI_RIGHT)
+    press(ED_UI_RIGHT)
     press(ED_UI_SELECT)
     sleep(5)  # Wait for galmap, sometimes slow
-    if not press_until_selected_region(ED_UI_DOWN, NAVIGATION_ICON, debug_text="NAVIGATION ICON", max_count=5):
-        set_status("Unable to select NAVIGATION ICON")
-        return False
+    press(ED_UI_DOWN)
     press(ED_UI_SELECT)
     sleep(0.5)
-    if not press_until_selected_region(ED_UI_DOWN, GALMAP_IMAGE, debug_text="OPEN GALMAP", max_count=5):
-        set_status("Unable to SELECT OPEN GALMAP")
-        return False
     press(ED_UI_SELECT)
+
+    """ 
+        if not press_until_selected_region(ED_UI_DOWN, TRITIUM_DEPOT_POS, ED_UI_UP): return False
+        if not press_until_selected_region(ED_UI_RIGHT, CARRIER_MANAGEMENT_POS, ED_UI_DOWN): return False
+        press(ED_UI_SELECT)
+        sleep(5)  # Wait for galmap, sometimes slow
+        if not press_until_selected_region(ED_UI_DOWN, NAVIGATION_ICON, debug_text="NAVIGATION ICON", max_count=5):
+            set_status("Unable to select NAVIGATION ICON")
+            return False
+        press(ED_UI_SELECT)
+        sleep(0.5)
+        if not press_until_selected_region(ED_UI_DOWN, GALMAP_IMAGE, debug_text="OPEN GALMAP", max_count=5):
+            set_status("Unable to SELECT OPEN GALMAP")
+            return False
+        press(ED_UI_SELECT)
+
+    """
     root.after(3000, find_system_and_jump_2, *args)
 
 
 def find_system_and_jump_2(*args):
     global jumping, jump_one
-    mouse_click_at_region(GALMAP_SEARCH)
+
+    press(ED_UI_UP) # Make sure UP key isn't set in Option|General control|Galaxy Map, Its default for Galaxy cam translate forward
+    press(ED_UI_SELECT)
     kb.write(next_waypoint)
     sleep(1)
-    mouse_click_at_region(GALMAP_SEARCH, y_offset=GALMAP_SEARCH[3])
-    sleep(2)
-    mouse_move_to_region(SET_CARRIER_DESTINATION_POS)
-    sleep(0.25)
-    # Check if set carrier destination is selectable
-    if ocr.get_average_color_bw(SET_CARRIER_DESTINATION_POS) <= ENABLED_THRESHOLD:
-        set_status("Destination is invalid")
-        return
-    mouse_click_at_region(SET_CARRIER_DESTINATION_POS)
+    press('enter')
+    sleep(0.2)
+    press(ED_UI_DOWN) # Make sure DOWN key isn't set in Option|General control|Galaxy Map, Its default for Galaxy cam translate backward
+    press(ED_UI_SELECT)
+    sleep(10) # wait for cursor to go to new system, can take a while
+    press(ED_UI_LEFT, delay=0.5, down_time=0.1)
+    press(ED_UI_RIGHT, delay=0.5, down_time=0.1)
+    press(ED_UI_SELECT, delay=0.5, down_time=3)
+    sleep(1)
+
+
+    """     mouse_click_at_region(GALMAP_SEARCH)
+        kb.write(next_waypoint)
+        sleep(1)
+        mouse_click_at_region(GALMAP_SEARCH, y_offset=GALMAP_SEARCH[3])
+        sleep(2)
+        mouse_move_to_region(SET_CARRIER_DESTINATION_POS)
+        sleep(0.25)
+        # Check if set carrier destination is selectable
+        if ocr.get_average_color_bw(SET_CARRIER_DESTINATION_POS) <= ENABLED_THRESHOLD:
+            set_status("Destination is invalid")
+            return
+        mouse_click_at_region(SET_CARRIER_DESTINATION_POS)
+    """
+
     set_status("Jump set for {}".format(next_waypoint))
     jumping = True
 
@@ -474,17 +543,35 @@ def load_tritium(*args):
 
 
 def load_tritium_1(*args):
-    if not press_until_selected_region(ED_MENU_RIGHT, INVENTORY_POS, debug_text="INVENTORY", max_count=15):
-        set_status("Unable to select INVENTORY")
-        return False
-    if not press_until_selected_region(ED_UI_RIGHT, TRANSFER_POS, debug_text="TRANSFER", max_count=5):
-        press(ED_UI_UP)
-        sleep(0.5)
-        press(ED_UI_UP)
-        if not press_until_selected_region(ED_UI_RIGHT, TRANSFER_POS, debug_text="TRANSFER"):
-            set_status("Unable to select TRANSFER")
-            return False
+
+    press(ED_MENU_RIGHT)
+    press(ED_MENU_RIGHT)
+    press(ED_MENU_RIGHT)
+    press(ED_MENU_RIGHT)
+    press(ED_UI_RIGHT)
+    press(ED_UI_UP)
+    press(ED_UI_UP)
+
+    press(ED_UI_RIGHT)
     press(ED_UI_SELECT)
+    press(ED_UI_DOWN)
+    press(ED_UI_DOWN)
+    press(ED_UI_UP)
+
+    """     if not press_until_selected_region(ED_MENU_RIGHT, INVENTORY_POS, debug_text="INVENTORY", max_count=15):
+            set_status("Unable to select INVENTORY")
+            return False
+        if not press_until_selected_region(ED_UI_RIGHT, TRANSFER_POS, debug_text="TRANSFER", max_count=5):
+            press(ED_UI_UP)
+            sleep(0.5)
+            press(ED_UI_UP)
+            if not press_until_selected_region(ED_UI_RIGHT, TRANSFER_POS, debug_text="TRANSFER"):
+                set_status("Unable to select TRANSFER")
+                return False
+
+        press(ED_UI_SELECT)
+    """
+
     root.after(100, load_tritium_2, *args)
 
 
@@ -518,26 +605,52 @@ def press_until_selected_text(key, words, alt_key_if_words_not_found, max_cnt=10
 
 
 def load_tritium_2(*args):
-    if not press_until_selected_text(ED_UI_UP, ["TRITIUM"], ED_UI_DOWN): return False
-
-    # hold down the ED_UI_LEFT key until max capacity is reached
     kb.press(ED_UI_LEFT)
     logging.debug(f"Press and hold {ED_UI_LEFT}")
-    while True:
-        res, loc = ocr.is_text_on_screen(["MAX", "CAPACITY"], region=MAX_CAPACITY_POS, debug=True, save='max_capacity', show=False)
-        if res: break
-        sleep(0.3)
-    logging.debug(f"max_capacity found")
+    sleep(20)
+
+    """     if not press_until_selected_text(ED_UI_UP, ["TRITIUM"], ED_UI_DOWN): return False
+
+        # hold down the ED_UI_LEFT key until max capacity is reached
+        kb.press(ED_UI_LEFT)
+        logging.debug(f"Press and hold {ED_UI_LEFT}")
+        while True:
+            res, loc = ocr.is_text_on_screen(["MAX", "CAPACITY"], region=MAX_CAPACITY_POS, debug=True, save='max_capacity', show=False)
+            if res: break
+            sleep(0.3)
+        logging.debug(f"max_capacity found")
+
+    """
+
     logging.debug(f"Release {ED_UI_LEFT}")
     kb.release(ED_UI_LEFT)
     root.after(100, load_tritium_3, *args)
 
 
 def load_tritium_3(*args):
-    if not press_until_selected_region(ED_UI_DOWN, TRANSFER_CANCEL_POS, ED_UI_UP): return False
+    press(ED_UI_DOWN)
+    press(ED_UI_LEFT)
+    press(ED_UI_LEFT)
     press(ED_UI_RIGHT)
     press(ED_UI_SELECT)
+    sleep(1)
+    press(ED_BACK)
+
+    """     if not press_until_selected_region(ED_UI_DOWN, TRANSFER_CANCEL_POS, ED_UI_UP): return False
+        press(ED_UI_RIGHT)
+    """
+
+    press(ED_UI_SELECT)
     set_status('tritium loaded')
+
+    press(ED_MENU_LEFT)
+    press(ED_MENU_LEFT)
+    press(ED_MENU_LEFT)
+    press(ED_MENU_LEFT) # Make sure we back to home or next refuel will fail
+    press(ED_BACK)
+    press(ED_BACK)
+
+
     if not return_hud_to_start(): return False
     call_next_args(100, *args)
 
@@ -557,16 +670,28 @@ def donate_tritium(*args):
     if not return_hud_to_start(): return False
     press(ED_UI_SELECT)
 
-    if not press_until_selected_region(ED_UI_DOWN, TRITIUM_DEPOT_POS, ED_UI_UP): return False
+    press(ED_UI_DOWN)
+    press(ED_UI_DOWN)
+
+    """     if not press_until_selected_region(ED_UI_DOWN, TRITIUM_DEPOT_POS, ED_UI_UP): return False
+    """    
     press(ED_UI_SELECT)
     sleep(0.5)
-    if not press_until_selected_region(ED_UI_UP, DONATE_TRITIUM_POS, debug_text="DONATE TRITIUM"): return False
+
+    """     if not press_until_selected_region(ED_UI_UP, DONATE_TRITIUM_POS, debug_text="DONATE TRITIUM"): return False
+    """
     press(ED_UI_SELECT)
-    if not press_until_selected_region(ED_UI_UP, CONFIRM_DEPOSIT_POS, debug_text="CONFIRM DEPOSIT"): return False
+
+    press(ED_UI_UP)
+    """     if not press_until_selected_region(ED_UI_UP, CONFIRM_DEPOSIT_POS, debug_text="CONFIRM DEPOSIT"): return False
+    """
+
     press(ED_UI_SELECT)
     set_status('tritium donated')
-    if not press_until_selected_region(ED_UI_DOWN, TRITIUM_EXIT, debug_text="EXIT DOOR"): return False
-    press(ED_UI_SELECT)
+
+    """     if not press_until_selected_region(ED_UI_DOWN, TRITIUM_EXIT, debug_text="EXIT DOOR"): return False
+        press(ED_UI_SELECT)
+    """
 
     return_hud_to_start()
 
