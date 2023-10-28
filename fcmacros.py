@@ -494,9 +494,8 @@ def find_system_and_jump_2(*args):
     sleep(0.2)
     press(ED_UI_DOWN) # Make sure DOWN key isn't set in Option|General control|Galaxy Map, Its default for Galaxy cam translate backward
     press(ED_UI_SELECT)
-    sleep(10) # wait for cursor to go to new system, can take a while
-    press(ED_UI_LEFT, delay=0.5, down_time=0.1)
-    press(ED_UI_RIGHT, delay=0.5, down_time=0.1)
+    sleep(7) # wait for cursor to go to new system, can take a while
+    press(ED_MENU_LEFT)
     press(ED_UI_SELECT, delay=0.5, down_time=3)
     sleep(1)
 
